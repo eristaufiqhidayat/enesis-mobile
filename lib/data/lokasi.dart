@@ -53,6 +53,10 @@ class Lokasi {
       return Titik(p.latitude, p.longitude, p.accuracy, p.isMocked, DateTime.now());
     } on TimeoutException {
       throw LokasiException('Lokasi belum didapat. Coba di tempat terbuka.');
+    } on PermissionDeniedException {
+      throw LokasiException('Izin lokasi ditolak. Izinkan lokasi untuk Enesis di pengaturan HP.');
+    } on LocationServiceDisabledException {
+      throw LokasiException('GPS mati. Nyalakan lokasi di HP lalu coba lagi.');
     }
   }
 }
@@ -88,8 +92,8 @@ class Pelacak {
     try {
       final t = await Lokasi.sekarang();
       await local.addGps(t.waktu, t.lat, t.lng, t.akurasi, t.palsu);
-    } on LokasiException {
-      // GPS mati/izin ditolak: lewati titik ini.
+    } catch (_) {
+      // GPS mati / izin dicabut / gagal baca: lewati titik ini.
     }
   }
 

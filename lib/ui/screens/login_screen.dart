@@ -41,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await context.read<Session>().login(_username.text, _password.text);
     } on ApiException catch (e) {
-      setState(() => _galat = e.pesanField('username') ?? e.message);
+      if (mounted) setState(() => _galat = e.pesanField('username') ?? e.message);
     } finally {
       if (mounted) setState(() => _proses = false);
     }

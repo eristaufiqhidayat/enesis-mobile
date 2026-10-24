@@ -229,12 +229,15 @@ class TombolUtama extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FilledButton.icon(
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
       onPressed: proses || onPressed == null ? null : () => onPressed!(),
       icon: proses
           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
           : Icon(ikon ?? Icons.check),
       label: Text(label),
+      ),
     );
   }
 }
@@ -244,6 +247,7 @@ void tampilkanGalat(BuildContext context, Object e) {
   final pesan = switch (e) {
     ApiException(:final message) => message,
     LokasiException(:final message) => message,
+    String s => s,
     _ => 'Terjadi kesalahan: $e',
   };
   ScaffoldMessenger.of(context)

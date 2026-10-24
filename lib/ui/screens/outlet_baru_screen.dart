@@ -29,6 +29,10 @@ class _OutletBaruScreenState extends State<OutletBaruScreen> {
   String? _galatLokasi;
   bool _proses = false;
 
+  // Hasil yang sudah tersimpan, dipakai ulang bila tombol ditekan lagi (duplikat / checkin gagal).
+  final _refFoto = <String, String>{}; // path foto -> @ref
+  String? _refOutlet;
+
   @override
   void initState() {
     super.initState();
@@ -63,15 +67,18 @@ class _OutletBaruScreenState extends State<OutletBaruScreen> {
     setState(() => _proses = true);
     final nav = Navigator.of(context);
     try {
-      final ref = await hari.daftarOutletBaru(
+      Future<String> foto(String path, String jenis) async =>
+          _refFoto[path] ??= await hari.unggahFoto(path, jenis, 'Foto $jenis ${_nama.text.trim()}');
+
+      final ref = _refOutlet ??= await hari.daftarOutletBaru(
         nama: _nama.text.trim(),
         pemilik: _pemilik.text.trim(),
         hp: _hp.text.trim(),
         tipe: _tipe,
         alamat: _alamat.text.trim(),
         t: t,
-        fotoToko: _fotoToko!,
-        fotoRak: _fotoRak,
+        fotoToko: await foto(_fotoToko!, 'toko'),
+        fotoRak: _fotoRak == null ? null : await foto(_fotoRak!, 'rak'),
         bukanDuplikat: bukanDuplikat,
       );
 

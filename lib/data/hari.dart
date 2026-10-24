@@ -147,7 +147,7 @@ class Hari extends ChangeNotifier {
   bool get sudahAbsen => lokal['absen_at'] != null || _serverSelesai('attendance');
   bool get sudahCheckinDepo => lokal['depo_at'] != null || _serverSelesai('depot_check_in');
   bool get sudahTerimaBarang => lokal['terima_at'] != null || _serverSelesai('accept_goods') || canvassing?['accepted_at'] != null;
-  bool get sudahKembali => lokal['kembali_at'] != null || _serverSelesai('visits') || canvassing?['returned_at'] != null;
+  bool get sudahKembali => lokal['kembali_at'] != null || canvassing?['returned_at'] != null;
   bool get sudahTutup => lokal['tutup_at'] != null || _serverSelesai('close_day');
 
   List<Map<String, dynamic>> get kunjungan =>
@@ -241,10 +241,11 @@ class Hari extends ChangeNotifier {
         idField: idField,
       );
 
-  Future<String> _unggahFoto(String path, String jenis, String label) async {
+  /// Unggah foto lewat antrian; hasilnya rujukan `@ref:foto-…` untuk dipakai di transaksi.
+  Future<String> unggahFoto(String path, String jenis, String label) async {
     final ref = 'foto-${_uuid.v4()}';
     final simpan = await LocalDb.simpanFoto(path, ref);
-    await outbox.submit(OutboxEntry(
+    final r = await outbox.submit(OutboxEntry(
       kind: OutboxEntry.kindUpload,
       path: 'uploads',
       key: _uuid.v4(),
@@ -254,6 +255,9 @@ class Hari extends ChangeNotifier {
       ref: ref,
       idField: 'upload_id',
     ));
+
+    // Terunggah langsung: salinan di folder antrian tidak diperlukan lagi.
+    if (!r.queued) await LocalDb.hapusFoto(simpan);
     return '@ref:$ref';
   }
 
@@ -262,7 +266,7 @@ class Hari extends ChangeNotifier {
     var antri = false;
 
     if (!sudahAbsen) {
-      final foto = await _unggahFoto(fotoPath, 'selfie', 'Foto selfie absen');
+      final foto = await unggahFoto(fotoPath, 'selfie', 'Foto selfie absen');
       antri |= (await outbox.submit(_post('attendances/check-in', 'Absen masuk', {...t.toJson(), 'photo_id': foto}))).queued;
       lokal['absen_at'] = DateTime.now().toIso8601String();
       await _simpanLokal();
@@ -320,7 +324,7 @@ class Hari extends ChangeNotifier {
     String? fotoPath,
   }) async {
     final ref = 'visit-${_uuid.v4()}';
-    final foto = fotoPath == null ? null : await _unggahFoto(fotoPath, 'toko', 'Foto toko $nama');
+    final foto = fotoPath == null ? null : await unggahFoto(fotoPath, 'toko', 'Foto toko $nama');
     final r = await outbox.submit(_post(
       'visits',
       'Checkin $nama',
@@ -412,8 +416,10 @@ class Hari extends ChangeNotifier {
     ];
   }
 
-  /// Outlet baru (NOO). Bila online dan server mendeteksi kemungkinan duplikat, [ApiException]
-  /// `possible_duplicate` dilempar (fields.candidates); kirim ulang dengan [bukanDuplikat] = true.
+  /// Outlet baru (NOO). [fotoToko]/[fotoRak] = rujukan dari [unggahFoto], supaya kirim ulang
+  /// (mis. setelah `possible_duplicate`) tidak mengunggah foto lagi. Bila online dan server mendeteksi
+  /// kemungkinan duplikat, [ApiException] `possible_duplicate` dilempar (fields.candidates); kirim
+  /// ulang dengan [bukanDuplikat] = true.
   Future<String> daftarOutletBaru({
     required String nama,
     String? pemilik,
@@ -426,8 +432,6 @@ class Hari extends ChangeNotifier {
     bool bukanDuplikat = false,
   }) async {
     final ref = 'noo-${_uuid.v4()}';
-    final toko = await _unggahFoto(fotoToko, 'toko', 'Foto toko $nama');
-    final rak = fotoRak == null ? null : await _unggahFoto(fotoRak, 'rak', 'Foto rak $nama');
 
     await outbox.submit(_post(
       'outlets',
@@ -439,8 +443,8 @@ class Hari extends ChangeNotifier {
         if (hp != null && hp.isNotEmpty) 'phone': hp,
         if (tipe != null) 'type': tipe,
         if (alamat != null && alamat.isNotEmpty) 'address': alamat,
-        'photo_store_id': toko,
-        if (rak != null) 'photo_shelf_id': rak,
+        'photo_store_id': fotoToko,
+        if (fotoRak != null) 'photo_shelf_id': fotoRak,
         if (bukanDuplikat) 'confirm_not_duplicate': true,
       },
       ref: ref,

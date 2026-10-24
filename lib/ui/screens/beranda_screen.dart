@@ -273,9 +273,9 @@ class _AksiBerikutnya extends StatelessWidget {
       return const Catatan('Hari ini selesai. Terima kasih!', jenis: JenisCatatan.sukses);
     }
 
-    final buka_ = hari.kunjunganTerbuka;
-    if (buka_ != null) {
-      return _TombolBesar(ikon: Icons.storefront_outlined, kecil: 'Kunjungan berjalan', besar: '${buka_['nama']}', aksi: 'Lanjut', onTap: () => buka(KunjunganScreen(kunjungan: buka_)));
+    final terbuka = hari.kunjunganTerbuka;
+    if (terbuka != null) {
+      return _TombolBesar(ikon: Icons.storefront_outlined, kecil: 'Kunjungan berjalan', besar: '${terbuka['nama']}', aksi: 'Lanjut', onTap: () => buka(KunjunganScreen(kunjungan: terbuka)));
     }
 
     final n = hari.outletBerikutnya;

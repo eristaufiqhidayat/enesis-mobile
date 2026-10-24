@@ -44,7 +44,7 @@ ThemeData temaEnesis() {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: Warna.aksen,
-        minimumSize: const Size.fromHeight(52),
+        minimumSize: const Size(64, 52),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
       ),
@@ -52,7 +52,7 @@ ThemeData temaEnesis() {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: Warna.tautan,
-        minimumSize: const Size.fromHeight(52),
+        minimumSize: const Size(64, 52),
         side: const BorderSide(color: Warna.garis, width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),

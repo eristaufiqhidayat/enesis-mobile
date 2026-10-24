@@ -48,6 +48,7 @@ class _GantiPasswordScreenState extends State<GantiPasswordScreen> {
         tampilkanInfo(context, 'Password sudah diganti.');
       }
     } on ApiException catch (e) {
+      if (!mounted) return;
       setState(() => _galat = {
             'current_password': e.pesanField('current_password'),
             'password': e.pesanField('password') ?? (e.fields.isEmpty ? e.message : null),

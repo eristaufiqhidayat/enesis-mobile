@@ -14,8 +14,20 @@ class KunjunganScreen extends StatefulWidget {
 
   final Map<String, dynamic> kunjungan;
 
+  static bool _sedangCheckin = false;
+
   /// Checkin ke outlet (dari Rute / Beranda): cek syarat hari, ambil GPS, cek jarak, catat kunjungan.
   static Future<void> checkin(BuildContext context, Map<String, dynamic> outlet) async {
+    if (_sedangCheckin) return;
+    _sedangCheckin = true;
+    try {
+      await _checkin(context, outlet);
+    } finally {
+      _sedangCheckin = false;
+    }
+  }
+
+  static Future<void> _checkin(BuildContext context, Map<String, dynamic> outlet) async {
     final hari = context.read<Hari>();
     final nav = Navigator.of(context);
     final buka = hari.kunjunganTerbuka;
@@ -35,8 +47,12 @@ class KunjunganScreen extends StatefulWidget {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const AlertDialog(
-        content: Row(children: [CircularProgressIndicator(), SizedBox(width: 16), Expanded(child: Text('Mengambil lokasi…'))]),
+      // Tombol kembali Android tidak boleh menutup dialog ini (nanti ditutup kode di bawah).
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(children: [CircularProgressIndicator(), SizedBox(width: 16), Expanded(child: Text('Mengambil lokasi…'))]),
+        ),
       ),
     );
 

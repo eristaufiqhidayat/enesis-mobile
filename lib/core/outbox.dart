@@ -122,6 +122,7 @@ class Outbox extends ChangeNotifier {
 
   List<OutboxEntry> _cache = [];
   Future<void>? _berjalan;
+  int _kirimLangsung = 0;
   DateTime? lastSyncAt;
   Timer? _timer;
 
@@ -161,6 +162,7 @@ class Outbox extends ChangeNotifier {
     await load();
 
     if (_cache.where((e) => !e.isGagal).isEmpty && !await _punyaRefBelumAda(entry)) {
+      _kirimLangsung++;
       try {
         final res = await _send(entry);
         lastSyncAt = _clock();
@@ -172,6 +174,8 @@ class Outbox extends ChangeNotifier {
         entry.lastCode = e.code;
         entry.lastError = e.message;
         entry.nextTryAt = _clock().add(backoff(1));
+      } finally {
+        _kirimLangsung--;
       }
     }
 
@@ -207,10 +211,12 @@ class Outbox extends ChangeNotifier {
         try {
           final res = await _send(e);
           await store.remove(e.id!);
+          _cache.removeWhere((x) => x.id == e.id);
           lastSyncAt = _clock();
           onSent?.call(e, res);
         } on ApiException catch (err) {
-          if (err.perluLogin) break;
+          // Perlu login ulang / aplikasi harus diperbarui: hentikan tanpa menandai gagal.
+          if (err.perluLogin || err.status == 426) break;
 
           if (err.bolehDiulang) {
             e.attempts++;
@@ -305,6 +311,8 @@ class Outbox extends ChangeNotifier {
     for (final r in {...refsDalam(e.path), ...refsDalam(e.body)}) {
       if (await store.refValue(r) != null) continue;
       final induk = _cache.where((x) => x.ref == r);
+      // Induk mungkin sedang dikirim langsung oleh submit() lain.
+      if (induk.isEmpty && _kirimLangsung > 0) return _Ref.menunggu;
       if (induk.isEmpty || induk.any((x) => x.isGagal)) return _Ref.gagal;
       return _Ref.menunggu;
     }

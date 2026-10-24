@@ -92,6 +92,14 @@ class LocalDb {
     await File(sumber).copy(tujuan);
     return tujuan;
   }
+
+  static Future<void> hapusFoto(String path) async {
+    try {
+      await File(path).delete();
+    } on FileSystemException {
+      // sudah terhapus
+    }
+  }
 }
 
 /// [OutboxStore] di atas sqflite.
