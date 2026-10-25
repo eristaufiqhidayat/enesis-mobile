@@ -65,7 +65,8 @@ class AkunScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(session.nama, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                          Text('@${session.profil?['username'] ?? ''} · Sales motoris', style: const TextStyle(fontSize: 13, color: Warna.redup)),
+                          Text('@${session.profil?['username'] ?? ''} · ${session.adalahKoordinator ? 'Koordinator' : 'Sales motoris'}',
+                              style: const TextStyle(fontSize: 13, color: Warna.redup)),
                           if (session.depo != null) Text('Depo ${session.depo!['name']}', style: const TextStyle(fontSize: 13, color: Warna.redup)),
                         ],
                       ),
