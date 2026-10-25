@@ -32,6 +32,10 @@ class Session extends ChangeNotifier {
   Map<String, dynamic>? get depo => profil?['depot'] as Map<String, dynamic>?;
   Map<String, dynamic>? get koordinator => profil?['coordinator'] as Map<String, dynamic>?;
 
+  /// Role akun dari server: `sales` atau `koordinator`.
+  String? get peran => profil?['role'] as String?;
+  bool get adalahKoordinator => peran == 'koordinator';
+
   Future<void> init() async {
     api.token = await _storage.read(key: 'token');
     profil = await local.read('profil') as Map<String, dynamic>?;

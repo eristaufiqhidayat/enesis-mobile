@@ -7,7 +7,7 @@ class AppConfig {
   );
 
   /// Harus sama dengan `version` di pubspec.yaml (dikirim sebagai header X-App-Version).
-  static const appVersion = String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0');
+  static const appVersion = String.fromEnvironment('APP_VERSION', defaultValue: '1.1.0');
 
   static const requestTimeout = Duration(seconds: 20);
 }

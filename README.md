@@ -1,6 +1,7 @@
 # Enesis Motoris (Flutter)
 
-Aplikasi Android untuk **sales motoris** (canvassing) Enesis, sesuai mockup "Enesis Mobile — Motoris & Canvassing".
+Aplikasi Android Enesis untuk **sales motoris** (canvassing, sesuai mockup "Enesis Mobile — Motoris & Canvassing")
+dan **koordinator**. Satu aplikasi; menu mengikuti role akun yang login (`user.role` dari server).
 Backend: API `/api/mobile/v1` di repo [`enesis`](https://github.com/eristaufiqhidayat/enesis) (kontrak:
 `docs/api/mobile-v1.yaml`).
 
@@ -19,6 +20,21 @@ Backend: API `/api/mobile/v1` di repo [`enesis`](https://github.com/eristaufiqhi
 | Tutup hari | Bawa = terjual + kembali per SKU, uang tunai untuk disetor, checkout depo & absen pulang. |
 | Kinerja | Rekap bulan ini dan perkiraan insentif. |
 | Akun | Antrian kirim (transaksi belum terkirim / ditolak), ganti password, keluar. |
+
+## Menu koordinator
+
+| Layar | Isi |
+|---|---|
+| Beranda | Status absen, join visit yang berjalan / tombol mulai, ringkasan tim (sudah absen, kunjungan, omzet). |
+| Absen | Masuk: selfie + GPS (radius depo bila diatur). Pulang: ditolak selama join visit belum selesai. |
+| Tim | Sales bawahan hari ini: absen, di outlet / bekerja / pulang, kunjungan, EC, omzet, jam GPS terakhir; tombol Join visit. |
+| Mulai join visit | Pilih sales dan outlet terdekat (`/coordinator/outlets/nearby`), harus dalam radius outlet. |
+| Selesaikan join visit | Catatan + foto di outlet (wajib); durasi dihitung server. |
+| Join Visit | Riwayat hari ini (berjalan / selesai). |
+| Akun | Sama dengan sales. |
+
+GPS koordinator dicatat antara absen masuk dan absen pulang. Di web: menu **Join Visit**, **Absensi Koordinator**,
+dan **Tracking Koordinator**. Kode: `lib/data/koordinator.dart`, `lib/ui/screens/koordinator/`.
 
 ## Offline
 

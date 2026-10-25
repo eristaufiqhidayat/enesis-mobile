@@ -5,9 +5,11 @@ import 'core/api_client.dart';
 import 'core/local_db.dart';
 import 'core/outbox.dart';
 import 'data/hari.dart';
+import 'data/koordinator.dart';
 import 'data/lokasi.dart';
 import 'data/session.dart';
 import 'ui/screens/ganti_password_screen.dart';
+import 'ui/screens/koordinator/shell_koordinator.dart';
 import 'ui/screens/login_screen.dart';
 import 'ui/screens/shell.dart';
 import 'ui/theme.dart';
@@ -20,6 +22,7 @@ Future<void> main() async {
   final session = Session(api, local);
   final outbox = Outbox(SqfliteOutboxStore(local), api)..start();
   final hari = Hari(api, local, outbox);
+  final koordinator = Koordinator(api, local, outbox);
   final pelacak = Pelacak(local, api);
   await session.init();
 
@@ -28,6 +31,7 @@ Future<void> main() async {
       ChangeNotifierProvider.value(value: session),
       ChangeNotifierProvider.value(value: outbox),
       ChangeNotifierProvider.value(value: hari),
+      ChangeNotifierProvider.value(value: koordinator),
       Provider.value(value: pelacak),
     ],
     child: const EnesisApp(),
@@ -48,6 +52,9 @@ class EnesisApp extends StatelessWidget {
       beranda = const LoginScreen();
     } else if (session.wajibGantiPassword) {
       beranda = const GantiPasswordScreen(wajib: true);
+    } else if (session.adalahKoordinator) {
+      // Satu aplikasi: koordinator mendapat menu koordinator (Beranda · Tim · Join Visit · Akun).
+      beranda = ShellKoordinator(key: ValueKey(session.profil?['id']));
     } else {
       beranda = Shell(key: ValueKey(session.profil?['id']));
     }

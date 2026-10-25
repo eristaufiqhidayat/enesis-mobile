@@ -35,6 +35,7 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _hari.removeListener(_aturPelacak);
+    _hari.aktif = false;
     _pelacak.berhenti();
     super.dispose();
   }

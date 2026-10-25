@@ -30,6 +30,9 @@ class Hari extends ChangeNotifier {
   bool memuat = false;
   String? galatMuat;
 
+  /// Menu sales sedang dipakai (Shell). Akun koordinator memakai [Koordinator], bukan kelas ini.
+  bool aktif = false;
+
   String get tanggal => Fmt.ymd(DateTime.now());
   String get _kunciHari => 'hari:$tanggal';
 
@@ -37,6 +40,7 @@ class Hari extends ChangeNotifier {
 
   /// Baca cache dulu (tampil instan), lalu perbarui dari server bila online.
   Future<void> muat({bool server = true}) async {
+    aktif = true;
     config = Map<String, dynamic>.from(await local.read('config') ?? {});
     master = Map<String, dynamic>.from(await local.read('master') ?? {});
     ringkasan = await local.read('ringkasan:$tanggal') as Map<String, dynamic>?;
@@ -106,6 +110,7 @@ class Hari extends ChangeNotifier {
   }
 
   Future<void> _setelahTerkirim() async {
+    if (!aktif) return;
     if (outbox.pendingCount == 0) {
       try {
         ringkasan = Map<String, dynamic>.from((await api.get('me/summary')).data as Map);
