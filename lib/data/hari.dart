@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../core/api_client.dart';
 import '../core/format.dart';
+import '../core/geo.dart';
 import '../core/local_db.dart';
 import '../core/outbox.dart';
 import 'lokasi.dart';
@@ -132,6 +133,15 @@ class Hari extends ChangeNotifier {
   Map<String, dynamic> get depo => Map<String, dynamic>.from(config['depot'] as Map? ?? {});
   int get minimalTransaksi => (config['min_transaction_value'] as num?)?.toInt() ?? 35000;
   Map<String, dynamic> get target => Map<String, dynamic>.from(config['daily_targets'] as Map? ?? {});
+
+  /// Area kerja aktif sales (acuan absen, bukan checkin depo). Dari Master Area;
+  /// server yang mengirim polygon jadi, HP hanya memeriksa titik di dalam/luarnya.
+  List<Map<String, dynamic>> get areaKerja =>
+      List<Map<String, dynamic>>.from((config['work_areas'] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)));
+
+  /// true bila [t] berada di dalam salah satu area kerja aktif. Sales tanpa area
+  /// kerja (areaKerja kosong) selalu false — tidak ada jalan pintas ke radius depo.
+  bool dalamAreaKerja(Titik t) => titikDalamSalahSatuArea(t.lat, t.lng, areaKerja);
 
   List<Map<String, dynamic>> get produk =>
       List<Map<String, dynamic>>.from((master['products'] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)));
@@ -266,24 +276,24 @@ class Hari extends ChangeNotifier {
     return '@ref:$ref';
   }
 
-  /// Layar Absen: selfie → absen masuk → checkin depo (satu tombol seperti di mockup).
-  Future<bool> absenDanCheckinDepo(String fotoPath, Titik t) async {
-    var antri = false;
+  /// Langkah 1 — Absen masuk: selfie + lokasi di dalam area kerja aktif (bukan
+  /// radius depo). Terpisah dari checkin depo karena area kerja sales bisa jauh
+  /// dari depo; checkin depo baru dicek saat sales sampai di gudang.
+  Future<bool> absenMasuk(String fotoPath, Titik t) async {
+    final foto = await unggahFoto(fotoPath, 'selfie', 'Foto selfie absen');
+    final r = await outbox.submit(_post('attendances/check-in', 'Absen masuk', {...t.toJson(), 'photo_id': foto}));
+    lokal['absen_at'] = DateTime.now().toIso8601String();
+    await _simpanLokal();
+    return r.queued;
+  }
 
-    if (!sudahAbsen) {
-      final foto = await unggahFoto(fotoPath, 'selfie', 'Foto selfie absen');
-      antri |= (await outbox.submit(_post('attendances/check-in', 'Absen masuk', {...t.toJson(), 'photo_id': foto}))).queued;
-      lokal['absen_at'] = DateTime.now().toIso8601String();
-      await _simpanLokal();
-    }
-
-    if (!sudahCheckinDepo) {
-      antri |= (await outbox.submit(_post('depot-visits/check-in', 'Checkin depo', t.toJson()))).queued;
-      lokal['depo_at'] = DateTime.now().toIso8601String();
-      await _simpanLokal();
-    }
-
-    return antri;
+  /// Langkah 2 — Checkin depo: lokasi di dalam radius depo (tidak berubah),
+  /// dilakukan saat sales tiba di gudang untuk ambil barang canvassing.
+  Future<bool> checkinDepo(Titik t) async {
+    final r = await outbox.submit(_post('depot-visits/check-in', 'Checkin depo', t.toJson()));
+    lokal['depo_at'] = DateTime.now().toIso8601String();
+    await _simpanLokal();
+    return r.queued;
   }
 
   /// Terima barang canvassing. [diterima] = product_id -> (qty, alasan) untuk yang berselisih.

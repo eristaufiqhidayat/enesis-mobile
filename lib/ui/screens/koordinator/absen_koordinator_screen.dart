@@ -43,12 +43,6 @@ class _AbsenKoordinatorScreenState extends State<AbsenKoordinatorScreen> {
     }
   }
 
-  double? _jarak(Koordinator koor, Titik t) {
-    final lat = koor.depo['lat'] as num?;
-    final lng = koor.depo['lng'] as num?;
-    return lat == null || lng == null ? null : t.jarakKe(lat.toDouble(), lng.toDouble());
-  }
-
   Future<void> _simpan(Koordinator koor) async {
     final pulang = koor.sudahAbsen;
     final t = _titik;
@@ -61,10 +55,11 @@ class _AbsenKoordinatorScreenState extends State<AbsenKoordinatorScreen> {
     if (t != null && t.palsu) return tampilkanGalat(context, 'Lokasi palsu (mock location) terdeteksi. Matikan aplikasi pengubah lokasi.');
 
     if (!pulang) {
-      final jarak = _jarak(koor, t!);
-      final radius = (koor.depo['radius_m'] as num?) ?? 100;
-      if (jarak != null && jarak > radius) {
-        return tampilkanGalat(context, 'Anda ${jarak.round()} m dari depo, batas ${radius.round()} m.');
+      if (koor.areaKerja.isEmpty) {
+        return tampilkanGalat(context, 'Tim Anda belum punya area kerja aktif. Hubungi admin.');
+      }
+      if (!koor.dalamAreaKerja(t!)) {
+        return tampilkanGalat(context, 'Anda di luar area kerja tim. Pindah ke salah satu area aktif tim Anda lalu coba lagi.');
       }
     }
 
@@ -86,13 +81,14 @@ class _AbsenKoordinatorScreenState extends State<AbsenKoordinatorScreen> {
     final koor = context.watch<Koordinator>();
     final pulang = koor.sudahAbsen;
     final t = _titik;
-    final jarak = t == null ? null : _jarak(koor, t);
+    final areas = koor.areaKerja;
+    final dalam = t == null ? null : koor.dalamAreaKerja(t);
     final today = koor.config['today'] as Map? ?? {};
 
     return Scaffold(
       body: Column(
         children: [
-          HeaderBiru(judul: pulang ? 'Absen pulang' : 'Absen masuk', subjudul: 'Depo ${koor.depo['name'] ?? '-'}'),
+          HeaderBiru(judul: pulang ? 'Absen pulang' : 'Absen masuk'),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(16),
@@ -100,18 +96,51 @@ class _AbsenKoordinatorScreenState extends State<AbsenKoordinatorScreen> {
                 Kartu(
                   child: Row(
                     children: [
-                      const CircleAvatar(radius: 22, backgroundColor: Warna.biruMuda, child: Icon(Icons.my_location, color: Warna.biruTua)),
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: pulang
+                            ? Warna.biruMuda
+                            : dalam == true
+                                ? Warna.suksesMuda
+                                : dalam == false
+                                    ? Warna.bahayaMuda
+                                    : Warna.biruMuda,
+                        child: Icon(
+                          Icons.map_outlined,
+                          color: pulang
+                              ? Warna.biruTua
+                              : dalam == true
+                                  ? Warna.sukses
+                                  : dalam == false
+                                      ? Warna.bahaya
+                                      : Warna.biruTua,
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          _cari
-                              ? 'Mencari lokasi…'
-                              : t == null
-                                  ? (_galatLokasi ?? 'Lokasi belum didapat')
-                                  : jarak == null
-                                      ? 'Lokasi didapat (± ${t.akurasi.round()} m)'
-                                      : 'Anda ${Fmt.jarak(jarak)} dari depo',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (!pulang)
+                              Text(
+                                areas.isEmpty ? 'Tidak ada area kerja tim' : '${areas.length} area kerja tim aktif',
+                                style: const TextStyle(fontSize: 12, color: Warna.redup),
+                              ),
+                            Text(
+                              _cari
+                                  ? 'Mencari lokasi…'
+                                  : t == null
+                                      ? (_galatLokasi ?? 'Lokasi belum didapat')
+                                      : pulang
+                                          ? 'Lokasi didapat (± ${t.akurasi.round()} m)'
+                                          : areas.isEmpty
+                                              ? 'Tim belum punya area kerja'
+                                              : dalam == true
+                                                  ? 'Anda di dalam area kerja tim'
+                                                  : 'Anda di luar area kerja tim',
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                            ),
+                          ],
                         ),
                       ),
                       IconButton(onPressed: _cari ? null : _ambilLokasi, icon: const Icon(Icons.refresh), tooltip: 'Perbarui lokasi'),
@@ -151,6 +180,14 @@ class _AbsenKoordinatorScreenState extends State<AbsenKoordinatorScreen> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Catatan('Hari ini ${today['holiday_name'] ?? 'bukan hari kerja'}. Absen akan ditolak server.', jenis: JenisCatatan.peringatan),
+                  ),
+                if (!pulang && areas.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Catatan(
+                      'Tim Anda belum punya area kerja aktif (gabungan area aktif sales di tim). Absen tidak bisa dilakukan sampai area diatur oleh admin.',
+                      jenis: JenisCatatan.peringatan,
+                    ),
                   ),
                 const Catatan('Lokasi Anda dicatat berkala selama jam kerja dan tampil di web Tracking Koordinator.'),
               ],

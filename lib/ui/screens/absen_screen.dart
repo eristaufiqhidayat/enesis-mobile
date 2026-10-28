@@ -7,7 +7,9 @@ import '../../data/lokasi.dart';
 import '../theme.dart';
 import '../widgets/umum.dart';
 
-/// 02 Absen & checkin depo: selfie + lokasi dalam radius depo, satu tombol.
+/// 02a Absen masuk: selfie + lokasi di dalam area kerja aktif sales (Master
+/// Area), bukan radius depo. Checkin depo (radius depo) ada di layar terpisah,
+/// [CheckinDepoScreen], karena area kerja sales bisa jauh dari gudang.
 class AbsenScreen extends StatefulWidget {
   const AbsenScreen({super.key});
 
@@ -44,23 +46,24 @@ class _AbsenScreenState extends State<AbsenScreen> {
   }
 
   Future<void> _simpan(Hari hari) async {
-    if (!hari.sudahAbsen && _foto == null) return tampilkanGalat(context, 'Ambil foto selfie dulu.');
+    if (_foto == null) return tampilkanGalat(context, 'Ambil foto selfie dulu.');
     final t = _titik;
     if (t == null) return tampilkanGalat(context, _galatLokasi ?? 'Lokasi belum didapat.');
     if (t.palsu) return tampilkanGalat(context, 'Lokasi palsu (mock location) terdeteksi. Matikan aplikasi pengubah lokasi.');
 
-    final jarak = _jarak(hari, t);
-    final radius = (hari.depo['radius_m'] as num?) ?? 100;
-    if (jarak != null && jarak > radius) {
-      return tampilkanGalat(context, 'Anda ${jarak.round()} m dari depo, batas ${radius.round()} m.');
+    if (hari.areaKerja.isEmpty) {
+      return tampilkanGalat(context, 'Anda belum punya area kerja aktif. Hubungi admin/koordinator.');
+    }
+    if (!hari.dalamAreaKerja(t)) {
+      return tampilkanGalat(context, 'Anda di luar area kerja. Pindah ke salah satu area aktif Anda lalu coba lagi.');
     }
 
     setState(() => _proses = true);
     try {
-      final antri = await hari.absenDanCheckinDepo(_foto ?? '', t);
+      final antri = await hari.absenMasuk(_foto!, t);
       if (!mounted) return;
       Navigator.of(context).pop();
-      tampilkanHasil(context, antri, 'Absen masuk & checkin depo tercatat.');
+      tampilkanHasil(context, antri, 'Absen masuk tercatat.');
     } catch (e) {
       if (mounted) tampilkanGalat(context, e);
     } finally {
@@ -68,25 +71,18 @@ class _AbsenScreenState extends State<AbsenScreen> {
     }
   }
 
-  double? _jarak(Hari hari, Titik t) {
-    final lat = hari.depo['lat'] as num?;
-    final lng = hari.depo['lng'] as num?;
-    return lat == null || lng == null ? null : t.jarakKe(lat.toDouble(), lng.toDouble());
-  }
-
   @override
   Widget build(BuildContext context) {
     final hari = context.watch<Hari>();
     final t = _titik;
-    final jarak = t == null ? null : _jarak(hari, t);
-    final radius = (hari.depo['radius_m'] as num?) ?? 100;
-    final dalam = jarak == null || jarak <= radius;
+    final areas = hari.areaKerja;
+    final dalam = t == null ? null : hari.dalamAreaKerja(t);
     final today = hari.config['today'] as Map? ?? {};
 
     return Scaffold(
       body: Column(
         children: [
-          const HeaderBiru(judul: 'Absen & checkin depo'),
+          const HeaderBiru(judul: 'Absen masuk'),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(16),
@@ -96,26 +92,41 @@ class _AbsenScreenState extends State<AbsenScreen> {
                     children: [
                       CircleAvatar(
                         radius: 24,
-                        backgroundColor: dalam ? Warna.suksesMuda : Warna.bahayaMuda,
-                        child: Icon(Icons.warehouse_outlined, color: dalam ? Warna.sukses : Warna.bahaya),
+                        backgroundColor: dalam == true
+                            ? Warna.suksesMuda
+                            : dalam == false
+                                ? Warna.bahayaMuda
+                                : Warna.biruMuda,
+                        child: Icon(
+                          Icons.map_outlined,
+                          color: dalam == true
+                              ? Warna.sukses
+                              : dalam == false
+                                  ? Warna.bahaya
+                                  : Warna.biruTua,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Radius depo ${radius.round()} m', style: const TextStyle(fontSize: 12, color: Warna.redup)),
+                            Text(
+                              areas.isEmpty ? 'Tidak ada area kerja aktif' : '${areas.length} area kerja aktif',
+                              style: const TextStyle(fontSize: 12, color: Warna.redup),
+                            ),
                             Text(
                               _cari
                                   ? 'Mencari lokasi…'
                                   : t == null
                                       ? (_galatLokasi ?? 'Lokasi belum didapat')
-                                      : jarak == null
-                                          ? 'Koordinat depo belum diatur'
-                                          : 'Anda berada ${Fmt.jarak(jarak)} dari',
+                                      : areas.isEmpty
+                                          ? 'Belum punya area kerja'
+                                          : dalam == true
+                                              ? 'Anda di dalam area kerja'
+                                              : 'Anda di luar area kerja',
                               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                             ),
-                            Text('Depo ${hari.depo['name'] ?? '-'}', style: const TextStyle(fontSize: 13, color: Warna.redup)),
                           ],
                         ),
                       ),
@@ -124,23 +135,18 @@ class _AbsenScreenState extends State<AbsenScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                if (!hari.sudahAbsen) ...[
-                  Kartu(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text('Foto selfie', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                        const Text('Wajib untuk absen masuk. Pastikan wajah terlihat jelas.', style: TextStyle(fontSize: 13, color: Warna.redup)),
-                        const SizedBox(height: 12),
-                        FotoKotak(label: 'Ambil foto', path: _foto, depan: true, tinggi: 180, onFoto: (p) => setState(() => _foto = p)),
-                      ],
-                    ),
+                Kartu(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text('Foto selfie', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      const Text('Wajib untuk absen masuk. Pastikan wajah terlihat jelas.', style: TextStyle(fontSize: 13, color: Warna.redup)),
+                      const SizedBox(height: 12),
+                      FotoKotak(label: 'Ambil foto', path: _foto, depan: true, tinggi: 180, onFoto: (p) => setState(() => _foto = p)),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                ] else ...[
-                  const Catatan('Absen masuk sudah tercatat. Tinggal checkin depo.', jenis: JenisCatatan.sukses),
-                  const SizedBox(height: 12),
-                ],
+                ),
+                const SizedBox(height: 12),
                 Kartu(
                   child: Column(
                     children: [
@@ -157,6 +163,14 @@ class _AbsenScreenState extends State<AbsenScreen> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Catatan('Hari ini ${today['holiday_name'] ?? 'bukan hari kerja'}. Absen akan ditolak server.', jenis: JenisCatatan.peringatan),
                   ),
+                if (areas.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Catatan(
+                      'Anda belum punya area kerja aktif di Master Area. Absen tidak bisa dilakukan sampai area diatur oleh admin/koordinator.',
+                      jenis: JenisCatatan.peringatan,
+                    ),
+                  ),
                 const Catatan('Tanpa sinyal? Absen tetap tersimpan di HP dan dikirim otomatis ke Enesis saat online.'),
               ],
             ),
@@ -166,7 +180,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: TombolUtama(
-                hari.sudahAbsen ? 'Checkin depo' : 'Absen masuk & checkin depo',
+                'Absen masuk',
                 ikon: Icons.how_to_reg,
                 proses: _proses,
                 onPressed: () => _simpan(hari),
