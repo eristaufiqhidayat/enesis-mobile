@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../core/api_client.dart';
 import '../core/format.dart';
+import '../core/geo.dart';
 import '../core/local_db.dart';
 import '../core/outbox.dart';
 import 'lokasi.dart';
@@ -100,6 +101,14 @@ class Koordinator extends ChangeNotifier {
 
   Map<String, dynamic> get depo => Map<String, dynamic>.from(config['depot'] as Map? ?? {});
   int get radiusOutlet => (config['outlet_radius_m'] as num?)?.toInt() ?? 100;
+
+  /// Area kerja untuk absen koordinator = gabungan area aktif seluruh sales di
+  /// timnya (server yang menghitung union-nya, sama field `work_areas` dengan
+  /// sales). Tim tanpa area aktif → daftar kosong → absen selalu ditolak.
+  List<Map<String, dynamic>> get areaKerja =>
+      List<Map<String, dynamic>>.from((config['work_areas'] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)));
+
+  bool dalamAreaKerja(Titik t) => titikDalamSalahSatuArea(t.lat, t.lng, areaKerja);
 
   bool get sudahAbsen => lokal['absen_at'] != null || absenServer != null;
   bool get sudahPulang => lokal['pulang_at'] != null || absenServer?['checked_out_at'] != null;

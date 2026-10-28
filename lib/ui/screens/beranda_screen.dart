@@ -8,6 +8,7 @@ import '../../data/session.dart';
 import '../theme.dart';
 import '../widgets/umum.dart';
 import 'absen_screen.dart';
+import 'checkin_depo_screen.dart';
 import 'kunjungan_screen.dart';
 import 'terima_barang_screen.dart';
 import 'tutup_hari_screen.dart';
@@ -256,8 +257,12 @@ class _AksiBerikutnya extends StatelessWidget {
   Widget build(BuildContext context) {
     void buka(Widget layar) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => layar));
 
-    if (!hari.sudahAbsen || !hari.sudahCheckinDepo) {
-      return _TombolBesar(ikon: Icons.how_to_reg_outlined, kecil: 'Langkah 1–2', besar: 'Absen masuk & checkin depo', onTap: () => buka(const AbsenScreen()));
+    if (!hari.sudahAbsen) {
+      return _TombolBesar(ikon: Icons.how_to_reg_outlined, kecil: 'Langkah 1', besar: 'Absen masuk', onTap: () => buka(const AbsenScreen()));
+    }
+
+    if (!hari.sudahCheckinDepo) {
+      return _TombolBesar(ikon: Icons.warehouse_outlined, kecil: 'Langkah 2', besar: 'Checkin depo', onTap: () => buka(const CheckinDepoScreen()));
     }
 
     if (!hari.sudahTerimaBarang) {
